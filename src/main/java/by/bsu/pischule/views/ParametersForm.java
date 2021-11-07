@@ -103,8 +103,8 @@ public class ParametersForm extends FormLayout {
         dateFrom.setPlaceholder(DATE_PLACEHOLDER);
 
         dateTo.setLocale(APP_LOCALE);
-        dateFrom.setAutoOpen(true);
-        dateFrom.setPlaceholder(DATE_PLACEHOLDER);
+        dateTo.setAutoOpen(true);
+        dateTo.setPlaceholder(DATE_PLACEHOLDER);
 
         dateFrom.addValueChangeListener(e -> dateTo.setMin(e.getValue()));
         dateTo.addValueChangeListener(e -> dateFrom.setMax(e.getValue()));
