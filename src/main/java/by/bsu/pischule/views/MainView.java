@@ -1,12 +1,11 @@
 package by.bsu.pischule.views;
 
 import by.bsu.pischule.generator.TransactionGenerator;
-import by.bsu.pischule.model.FormData;
+import by.bsu.pischule.model.Parameters;
 import by.bsu.pischule.model.Transaction;
 import by.bsu.pischule.service.TemplateService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.notification.Notification;
@@ -18,7 +17,6 @@ import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.server.StreamResource;
-import org.apache.poi.xssf.usermodel.TextAlign;
 
 import java.io.InputStream;
 import java.time.LocalDate;
@@ -42,7 +40,8 @@ public class MainView extends VerticalLayout {
     private final TemplateService templateDocumentService;
     private final Anchor invisibleAnchor = new Anchor();
 
-    public MainView(TransactionGenerator generator, TemplateService templateDocumentService) {
+    public MainView(TransactionGenerator generator,
+                    TemplateService templateDocumentService) {
         this.generator = generator;
         this.templateDocumentService = templateDocumentService;
 
@@ -66,18 +65,18 @@ public class MainView extends VerticalLayout {
 
     private void configureForm() {
         form.setWidth("25em");
-        form.addListener(ParametersForm.GenerateEvent.class, e -> updateList(e.getFormData()));
+        form.addListener(ParametersForm.GenerateEvent.class, e -> updateList(e.getParameters()));
         form.addListener(ParametersForm.DownloadEvent.class, this::generateAndDownloadFile);
     }
 
-    private void updateList(FormData data) {
+    private void updateList(Parameters data) {
         transactionList.clear();
         transactionList.addAll(generator.generateTransactions(data));
         grid.setItems(transactionList);
     }
 
     private void setInitData() {
-        FormData data = getDefaultForm();
+        Parameters data = getDefaultForm();
         form.setFormData(data);
         transactionList.clear();
         transactionList.addAll(generator.generateTransactions(data));
@@ -109,8 +108,8 @@ public class MainView extends VerticalLayout {
         grid.getColumns().forEach(c -> c.setAutoWidth(true).setSortable(true));
     }
 
-    private FormData getDefaultForm() {
-        return FormData.builder()
+    private Parameters getDefaultForm() {
+        return Parameters.builder()
                 .account(42)
                 .name("Артур Филип Дент")
                 .allCaps(false)
@@ -135,11 +134,10 @@ public class MainView extends VerticalLayout {
 
     private void generateAndDownloadFile(ParametersForm.DownloadEvent e) {
         try {
-            InputStream document = templateDocumentService.fillDocument(e.getFormData(), getSortedItems());
+            InputStream document = templateDocumentService.fillDocument(e.getParameters(), getSortedItems());
             StreamResource streamResource = new StreamResource("transactions.docx", () -> document);
             invisibleAnchor.setHref(streamResource);
-            UI.getCurrent().getPage().executeJavaScript("$0.click();", this.invisibleAnchor.getElement());
-
+            invisibleAnchor.getElement().callJsFunction("click");
         } catch (Exception exception) {
             Notification.show(exception.getMessage());
         }

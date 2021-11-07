@@ -1,6 +1,6 @@
 package by.bsu.pischule.service;
 
-import by.bsu.pischule.model.FormData;
+import by.bsu.pischule.model.Parameters;
 import by.bsu.pischule.model.Transaction;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
@@ -21,18 +21,46 @@ import java.util.stream.Collectors;
 @Service
 public class TemplateService {
 
+    private static void transformBody(IBody documentPart, Function<String, String> transformFunction) {
+        for (XWPFParagraph p : documentPart.getParagraphs()) {
+            List<XWPFRun> runs = p.getRuns();
+            if (runs != null) {
+                for (XWPFRun r : runs) {
+                    String text = r.getText(0);
+                    if (text != null) {
+                        r.setText(transformFunction.apply(text), 0);
+                    }
+                }
+            }
+        }
+        for (XWPFTable tbl : documentPart.getTables()) {
+            for (XWPFTableRow row : tbl.getRows()) {
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    for (XWPFParagraph p : cell.getParagraphs()) {
+                        for (XWPFRun r : p.getRuns()) {
+                            String text = r.getText(0);
+                            if (text != null) {
+                                r.setText(transformFunction.apply(text), 0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public InputStream getDocument() {
         return getClass().getClassLoader().getResourceAsStream("template.docx");
     }
 
-    public InputStream fillDocument(FormData formData, Collection<Transaction> transactions) throws IOException, XmlException {
+    public InputStream fillDocument(Parameters parameters, Collection<Transaction> transactions) throws IOException, XmlException {
 
         DateTimeFormatter df = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         Map<String, String> words = Map.of(
-                "{OWNER_NAME}", formData.getName(),
-                "{ACCOUNT_NUMBER}", formData.getAccount() + "",
-                "{DATE_FROM}", df.format(formData.getDateFrom()),
-                "{DATE_TO}", df.format(formData.getDateTo())
+                "{OWNER_NAME}", parameters.getName(),
+                "{ACCOUNT_NUMBER}", parameters.getAccount() + "",
+                "{DATE_FROM}", df.format(parameters.getDateFrom()),
+                "{DATE_TO}", df.format(parameters.getDateTo())
         );
 
         List<Map<String, String>> data = transactions.stream()
@@ -45,17 +73,17 @@ public class TemplateService {
                 )).collect(Collectors.toList());
 
         Function<String, String> textTransformFunction;
-        if (Boolean.TRUE.equals(formData.getAllCaps())) {
+        if (Boolean.TRUE.equals(parameters.getAllCaps())) {
             textTransformFunction = String::toUpperCase;
         } else {
             textTransformFunction = Function.identity();
         }
 
         InputStream stream;
-        if (formData.getTemplate() == null) {
+        if (parameters.getTemplate() == null) {
             stream = getDocument();
         } else {
-            stream = new ByteArrayInputStream(formData.getTemplate());
+            stream = new ByteArrayInputStream(parameters.getTemplate());
         }
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -63,7 +91,7 @@ public class TemplateService {
 
             substituteParagraphWords(document, words);
             substituteTable(document, data, textTransformFunction);
-            if (Boolean.TRUE.equals(formData.getAllCaps())) {
+            if (Boolean.TRUE.equals(parameters.getAllCaps())) {
                 document.getHeaderList().forEach(h -> transformBody(h, textTransformFunction));
                 transformBody(document, textTransformFunction);
                 document.getFooterList().forEach(f -> transformBody(f, textTransformFunction));
@@ -122,34 +150,6 @@ public class TemplateService {
                         text = text.replace(k, replaceWords.get(k));
                     }
                     r.setText(text, 0);
-                }
-            }
-        }
-    }
-
-    private static void transformBody(IBody documentPart, Function<String, String> transformFunction) {
-        for (XWPFParagraph p : documentPart.getParagraphs()) {
-            List<XWPFRun> runs = p.getRuns();
-            if (runs != null) {
-                for (XWPFRun r : runs) {
-                    String text = r.getText(0);
-                    if (text != null) {
-                        r.setText(transformFunction.apply(text), 0);
-                    }
-                }
-            }
-        }
-        for (XWPFTable tbl : documentPart.getTables()) {
-            for (XWPFTableRow row : tbl.getRows()) {
-                for (XWPFTableCell cell : row.getTableCells()) {
-                    for (XWPFParagraph p : cell.getParagraphs()) {
-                        for (XWPFRun r : p.getRuns()) {
-                            String text = r.getText(0);
-                            if (text != null) {
-                                r.setText(transformFunction.apply(text), 0);
-                            }
-                        }
-                    }
                 }
             }
         }
