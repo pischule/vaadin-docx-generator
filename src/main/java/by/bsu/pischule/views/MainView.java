@@ -116,7 +116,7 @@ public class MainView extends VerticalLayout {
                 .allCaps(false)
                 .dateFrom(LocalDate.now().minusDays(10))
                 .dateTo(LocalDate.now())
-                .rowCount(1000)
+                .rowCount(100)
                 .build();
     }
 
