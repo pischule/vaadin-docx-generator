@@ -29,7 +29,7 @@ public class TransactionGenerator {
         int n = formData.getRowCount();
         for (int i = 0; i < n; ++i) {
             long id = startId + i;
-            BigDecimal amount = new BigDecimal(random.nextInt(100000)).divide(ONE_HUNDRED, 2, RoundingMode.HALF_EVEN);
+            BigDecimal amount = new BigDecimal(random.nextInt(10000000)).divide(ONE_HUNDRED, 2, RoundingMode.HALF_EVEN);
             String description = "description" + random.nextInt(100);
             String currency = CURRENCIES.get(random.nextInt(CURRENCIES.size()));
             LocalDate date = formData.getDateFrom().plusDays((i + 1) * daysDelta / n);
