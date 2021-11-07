@@ -2,7 +2,10 @@ package by.bsu.pischule.service
 
 import by.bsu.pischule.model.Parameters
 import by.bsu.pischule.model.Transaction
-import org.apache.poi.xwpf.usermodel.*
+import org.apache.poi.xwpf.usermodel.IBody
+import org.apache.poi.xwpf.usermodel.XWPFDocument
+import org.apache.poi.xwpf.usermodel.XWPFTable
+import org.apache.poi.xwpf.usermodel.XWPFTableRow
 import org.apache.xmlbeans.XmlException
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRow
 import org.springframework.stereotype.Service
@@ -11,7 +14,6 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.time.format.DateTimeFormatter
-import java.util.*
 import java.util.function.Consumer
 import java.util.function.Function
 
@@ -39,18 +41,19 @@ class TemplateService {
                 "{AMOUNT}" to it.amount.toString()
             )
         }.toList()
-        val textTransformFunction: Function<String?, String?>
-        textTransformFunction = if (parameters.allCaps) {
-            Function { obj: String? -> obj!!.uppercase(Locale.getDefault()) }
+
+        val textTransformFunction: Function<String?, String?> = if (parameters.allCaps) {
+            Function { obj: String? -> obj!!.uppercase() }
         } else {
             Function.identity()
         }
-        val stream: InputStream
-        if (parameters.template == null) {
-            stream = document
+
+        val stream: InputStream = if (parameters.template == null) {
+            document
         } else {
-            stream = ByteArrayInputStream(parameters.template)
+            ByteArrayInputStream(parameters.template)
         }
+
         ByteArrayOutputStream().use { outputStream ->
             XWPFDocument(stream).use { document ->
                 substituteParagraphWords(document, words)
@@ -74,17 +77,17 @@ class TemplateService {
         document: XWPFDocument, replaceRows: List<Map<String, String>>,
         textTransform: Function<String?, String?>
     ) {
-        val it: Iterator<XWPFTable> = document.tablesIterator
+        val it = document.tablesIterator
         while (it.hasNext()) {
-            val tbl: XWPFTable = it.next()
-            val rows: List<XWPFTableRow> = tbl.rows
+            val tbl = it.next()
+            val rows = tbl.rows
             if (rows.size != 2) {
                 continue
             }
-            val rowTemplate: XWPFTableRow = copyRow(tbl.getRow(1), tbl)
+            val rowTemplate = copyRow(tbl.getRow(1), tbl)
             tbl.removeRow(1)
             for (dataRow in replaceRows) {
-                val row: XWPFTableRow = copyRow(rowTemplate, tbl)
+                val row = copyRow(rowTemplate, tbl)
                 for (cell in row.tableCells) {
                     for (p in cell.paragraphs) {
                         for (r in p.runs) {
@@ -103,15 +106,15 @@ class TemplateService {
 
     @Throws(XmlException::class, IOException::class)
     private fun copyRow(row: XWPFTableRow, tbl: XWPFTable): XWPFTableRow {
-        val ctrow: CTRow = CTRow.Factory.parse(row.ctRow.newInputStream())
+        val ctrow = CTRow.Factory.parse(row.ctRow.newInputStream())
         return XWPFTableRow(ctrow, tbl)
     }
 
-    fun substituteParagraphWords(document: XWPFDocument, replaceWords: Map<String, String?>) {
-        val it: Iterator<XWPFParagraph> = document.paragraphsIterator
+    private fun substituteParagraphWords(document: XWPFDocument, replaceWords: Map<String, String?>) {
+        val it = document.paragraphsIterator
         while (it.hasNext()) {
-            val p: XWPFParagraph = it.next()
-            val runs: List<XWPFRun>? = p.runs
+            val p = it.next()
+            val runs = p.runs
             if (runs != null) {
                 for (r in runs) {
                     var text: String? = r.getText(0) ?: continue
@@ -128,10 +131,10 @@ class TemplateService {
     companion object {
         private fun transformBody(documentPart: IBody, transformFunction: Function<String?, String?>) {
             for (p in documentPart.paragraphs) {
-                val runs: List<XWPFRun>? = p.runs
+                val runs = p.runs
                 if (runs != null) {
                     for (r in runs) {
-                        val text: String? = r.getText(0)
+                        val text = r.getText(0)
                         if (text != null) {
                             r.setText(transformFunction.apply(text), 0)
                         }

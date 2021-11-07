@@ -42,8 +42,8 @@ class MainView(
 
     private fun configureForm() {
         form.width = "25em"
-        form.addListener(ParametersForm.GenerateEvent::class.java) { e: ParametersForm.GenerateEvent -> updateList(e.parameters) }
-        form.addListener(DownloadEvent::class.java) { e: DownloadEvent -> generateAndDownloadFile(e) }
+        form.addListener(ParametersForm.GenerateEvent::class.java) { updateList(it.parameters) }
+        form.addListener(DownloadEvent::class.java, this::generateAndDownloadFile)
     }
 
     private fun updateList(data: Parameters) {
@@ -63,10 +63,12 @@ class MainView(
     private val content: Component
         get() {
             val content = HorizontalLayout(grid, form)
-            content.setFlexGrow(2.0, grid)
-            content.setFlexGrow(1.0, form)
-            content.addClassName("content")
-            content.setSizeFull()
+            with(content) {
+                setFlexGrow(2.0, grid)
+                setFlexGrow(1.0, form)
+                addClassName("content")
+                setSizeFull()
+            }
             return content
         }
 
@@ -75,15 +77,15 @@ class MainView(
         grid.setColumns()
         grid.isMultiSort = true
         val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-        grid.addColumn(ValueProvider<Transaction, Any> { t: Transaction -> t.date.format(formatter) })
+        grid.addColumn(ValueProvider<Transaction, Any> { it.date.format(formatter) })
             .setHeader("Дата").setTextAlign(ColumnTextAlign.CENTER).setComparator(
                 Comparator.comparing(Transaction::date)
             )
-        grid.addColumn(Transaction::id).setHeader("Номер транзакции").setTextAlign(ColumnTextAlign.END)
-        grid.addColumn(Transaction::description).setHeader("Описание").setTextAlign(ColumnTextAlign.START)
-        grid.addColumn(Transaction::currency).setHeader("Валюта").setTextAlign(ColumnTextAlign.START)
-        grid.addColumn(Transaction::amount).setHeader("Сумма").setTextAlign(ColumnTextAlign.END)
-        grid.columns.forEach(Consumer { c: Grid.Column<Transaction> -> c.setAutoWidth(true).setSortable(true) })
+        grid.addColumn(Transaction::id).setHeader("Номер транзакции").textAlign = ColumnTextAlign.END
+        grid.addColumn(Transaction::description).setHeader("Описание").textAlign = ColumnTextAlign.START
+        grid.addColumn(Transaction::currency).setHeader("Валюта").textAlign = ColumnTextAlign.START
+        grid.addColumn(Transaction::amount).setHeader("Сумма").textAlign = ColumnTextAlign.END
+        grid.columns.forEach(Consumer { it.setAutoWidth(true).setSortable(true) })
     }
 
     private val defaultForm: Parameters

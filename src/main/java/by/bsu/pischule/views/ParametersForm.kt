@@ -1,8 +1,10 @@
 package by.bsu.pischule.views
 
 import by.bsu.pischule.model.Parameters
-import com.vaadin.flow.component.*
-import com.vaadin.flow.component.AbstractField.ComponentValueChangeEvent
+import com.vaadin.flow.component.Component
+import com.vaadin.flow.component.ComponentEvent
+import com.vaadin.flow.component.ComponentEventListener
+import com.vaadin.flow.component.Key
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.checkbox.Checkbox
@@ -24,29 +26,28 @@ import com.vaadin.flow.server.StreamResource
 import com.vaadin.flow.shared.Registration
 import org.apache.commons.io.IOUtils
 import java.io.InputStream
-import java.time.LocalDate
 import java.util.*
 
 class ParametersForm : FormLayout() {
-    var h3 = H3("Выписка по счету")
-    var binder: Binder<Parameters> = BeanValidationBinder(
+    private val h3 = H3("Выписка по счету")
+    private val binder: Binder<Parameters> = BeanValidationBinder(
         Parameters::class.java
     )
     var parameters = Parameters()
 
-    val name = TextField("Владелец счета")
-    val account = IntegerField("Номер счета")
-    val dateFrom = DatePicker("Начало интервала")
-    val dateTo = DatePicker("Конец интервала")
-    val allCaps = Checkbox(ALL_CAPS_CHECKBOX_TEXT)
-    val template = MemoryBuffer()
-    val uploadTemplateFile = Upload(template)
-    val rowCount = IntegerField("Количество записей")
-    val generateButton = Button("Сгенерировать данные")
-    val downloadButton = Button("Создать документ")
+    private val name = TextField("Владелец счета")
+    private val account = IntegerField("Номер счета")
+    private val dateFrom = DatePicker("Начало интервала")
+    private val dateTo = DatePicker("Конец интервала")
+    private val allCaps = Checkbox(ALL_CAPS_CHECKBOX_TEXT)
+    private val template = MemoryBuffer()
+    private val uploadTemplateFile = Upload(template)
+    private val rowCount = IntegerField("Количество записей")
+    private val generateButton = Button("Сгенерировать данные")
+    private val downloadButton = Button("Создать документ")
     private fun configureAllCapsButton() {
-        allCaps.addValueChangeListener { e: ComponentValueChangeEvent<Checkbox?, Boolean> ->
-            if (e.value) {
+        allCaps.addValueChangeListener {
+            if (it.value) {
                 allCaps.label = ALL_CAPS_CHECKBOX_TEXT.uppercase()
             } else {
                 allCaps.label = ALL_CAPS_CHECKBOX_TEXT
@@ -66,44 +67,48 @@ class ParametersForm : FormLayout() {
     }
 
     private fun configureGenerateButton() {
-        generateButton.addClickListener { e: ClickEvent<Button?>? -> validateAndGenerate() }
+        generateButton.addClickListener { validateAndGenerate() }
     }
 
     private fun configureDatePickers() {
-        dateFrom.locale = APP_LOCALE
-        dateFrom.isAutoOpen = true
-        dateFrom.placeholder = DATE_PLACEHOLDER
-        dateTo.locale = APP_LOCALE
-        dateFrom.isAutoOpen = true
-        dateFrom.placeholder = DATE_PLACEHOLDER
-        dateFrom.addValueChangeListener { e: ComponentValueChangeEvent<DatePicker?, LocalDate?> ->
-            dateTo.min = e.value
+        with(dateFrom) {
+            locale = APP_LOCALE
+            isAutoOpen = true
+            placeholder = DATE_PLACEHOLDER
+            isAutoOpen = true
         }
-        dateTo.addValueChangeListener { e: ComponentValueChangeEvent<DatePicker?, LocalDate?> ->
-            dateFrom.max = e.value
+
+        with(dateTo) {
+            locale = APP_LOCALE
+            isAutoOpen = true
+            placeholder = DATE_PLACEHOLDER
+            isAutoOpen = true
         }
+
+        dateFrom.addValueChangeListener { dateTo.min = it.value }
+        dateTo.addValueChangeListener { dateFrom.max = it.value }
     }
 
     private fun configureDownloadButton() {
         downloadButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-        downloadButton.addClickListener { e: ClickEvent<Button> -> downloadFile() }
+        downloadButton.addClickListener { downloadFile() }
         downloadButton.addClickShortcut(Key.ENTER)
     }
 
-    private fun validateAndGenerate() {
-        try {
-            binder.writeBean(parameters)
-            fireEvent(GenerateEvent(this, parameters))
-        } catch (e: ValidationException) {
-            e.printStackTrace()
-        }
+    private fun validateAndGenerate() = try {
+        binder.writeBean(parameters)
+        fireEvent(GenerateEvent(this, parameters))
+    } catch (e: ValidationException) {
+        e.printStackTrace()
     }
 
     private val studentInfo: Div
         get() {
             val div = Div()
-            div.add(Paragraph("Студент: Пищулёнок Максим Сергеевич"))
-            div.add(Paragraph("Курс: 4; Группа: 4."))
+            div.add(
+                Paragraph("Студент: Пищулёнок Максим Сергеевич"),
+                Paragraph("Курс: 4; Группа: 4.")
+            )
             return div
         }
     private val templateLink: Component
@@ -117,8 +122,7 @@ class ParametersForm : FormLayout() {
         }
 
     public override fun <T : ComponentEvent<*>?> addListener(
-        eventType: Class<T>,
-        listener: ComponentEventListener<T>
+        eventType: Class<T>, listener: ComponentEventListener<T>
     ): Registration {
         return eventBus.addListener(eventType, listener)
     }
@@ -159,13 +163,16 @@ class ParametersForm : FormLayout() {
 
     init {
         setSizeFull()
+
         binder.bindInstanceFields(this)
+
         configureDatePickers()
         configureRowCount()
         configureGenerateButton()
         configureDownloadButton()
         configureUpload()
         configureAllCapsButton()
+
         add(
             h3,
             name,
