@@ -1,155 +1,154 @@
-package by.bsu.pischule.service;
+package by.bsu.pischule.service
 
-import by.bsu.pischule.model.Parameters;
-import by.bsu.pischule.model.Transaction;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.xwpf.usermodel.*;
-import org.apache.xmlbeans.XmlException;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRow;
-import org.springframework.stereotype.Service;
+import by.bsu.pischule.model.Parameters
+import by.bsu.pischule.model.Transaction
+import org.apache.poi.xwpf.usermodel.*
+import org.apache.xmlbeans.XmlException
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRow
+import org.springframework.stereotype.Service
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.time.format.DateTimeFormatter
+import java.util.*
+import java.util.function.Consumer
+import java.util.function.Function
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-@Slf4j
 @Service
-public class TemplateService {
+class TemplateService {
+    private val document: InputStream
+        get() = javaClass.classLoader.getResourceAsStream("template.docx")
 
-    private static void transformBody(IBody documentPart, Function<String, String> transformFunction) {
-        for (XWPFParagraph p : documentPart.getParagraphs()) {
-            List<XWPFRun> runs = p.getRuns();
-            if (runs != null) {
-                for (XWPFRun r : runs) {
-                    String text = r.getText(0);
-                    if (text != null) {
-                        r.setText(transformFunction.apply(text), 0);
-                    }
+    @Throws(IOException::class, XmlException::class)
+    fun fillDocument(parameters: Parameters, transactions: Collection<Transaction>): InputStream {
+        val df = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+        val words = mapOf(
+            "{OWNER_NAME}" to parameters.name,
+            "{ACCOUNT_NUMBER}" to parameters.account.toString() + "",
+            "{DATE_FROM}" to df.format(parameters.dateFrom),
+            "{DATE_TO}" to df.format(parameters.dateTo)
+        )
+
+        val data = transactions.map {
+            mapOf(
+                "{DATE}" to df.format(it.date),
+                "{ID}" to it.id.toString() + "",
+                "{DESCRIPTION}" to it.description,
+                "{CURRENCY}" to it.currency,
+                "{AMOUNT}" to it.amount.toString()
+            )
+        }.toList()
+        val textTransformFunction: Function<String?, String?>
+        textTransformFunction = if (parameters.allCaps) {
+            Function { obj: String? -> obj!!.uppercase(Locale.getDefault()) }
+        } else {
+            Function.identity()
+        }
+        val stream: InputStream
+        if (parameters.template == null) {
+            stream = document
+        } else {
+            stream = ByteArrayInputStream(parameters.template)
+        }
+        ByteArrayOutputStream().use { outputStream ->
+            XWPFDocument(stream).use { document ->
+                substituteParagraphWords(document, words)
+                substituteTable(document, data, textTransformFunction)
+                if (parameters.allCaps) {
+                    document.headerList
+                        .forEach(Consumer { transformBody(it, textTransformFunction) })
+                    transformBody(document, textTransformFunction)
+                    document.footerList
+                        .forEach(Consumer { transformBody(it, textTransformFunction) })
                 }
+                document.write(outputStream)
+                stream.close()
+                return ByteArrayInputStream(outputStream.toByteArray())
             }
         }
-        for (XWPFTable tbl : documentPart.getTables()) {
-            for (XWPFTableRow row : tbl.getRows()) {
-                for (XWPFTableCell cell : row.getTableCells()) {
-                    for (XWPFParagraph p : cell.getParagraphs()) {
-                        for (XWPFRun r : p.getRuns()) {
-                            String text = r.getText(0);
-                            if (text != null) {
-                                r.setText(transformFunction.apply(text), 0);
+    }
+
+    @Throws(XmlException::class, IOException::class)
+    fun substituteTable(
+        document: XWPFDocument, replaceRows: List<Map<String, String>>,
+        textTransform: Function<String?, String?>
+    ) {
+        val it: Iterator<XWPFTable> = document.tablesIterator
+        while (it.hasNext()) {
+            val tbl: XWPFTable = it.next()
+            val rows: List<XWPFTableRow> = tbl.rows
+            if (rows.size != 2) {
+                continue
+            }
+            val rowTemplate: XWPFTableRow = copyRow(tbl.getRow(1), tbl)
+            tbl.removeRow(1)
+            for (dataRow in replaceRows) {
+                val row: XWPFTableRow = copyRow(rowTemplate, tbl)
+                for (cell in row.tableCells) {
+                    for (p in cell.paragraphs) {
+                        for (r in p.runs) {
+                            var text: String? = r.getText(0) ?: continue
+                            for (k in dataRow.keys) {
+                                text = text!!.replace(k, dataRow[k]!!)
                             }
+                            r.setText(textTransform.apply(text), 0)
                         }
                     }
                 }
+                tbl.addRow(row)
             }
         }
     }
 
-    public InputStream getDocument() {
-        return getClass().getClassLoader().getResourceAsStream("template.docx");
+    @Throws(XmlException::class, IOException::class)
+    private fun copyRow(row: XWPFTableRow, tbl: XWPFTable): XWPFTableRow {
+        val ctrow: CTRow = CTRow.Factory.parse(row.ctRow.newInputStream())
+        return XWPFTableRow(ctrow, tbl)
     }
 
-    public InputStream fillDocument(Parameters parameters, Collection<Transaction> transactions) throws IOException, XmlException {
-
-        DateTimeFormatter df = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        Map<String, String> words = Map.of(
-                "{OWNER_NAME}", parameters.getName(),
-                "{ACCOUNT_NUMBER}", parameters.getAccount() + "",
-                "{DATE_FROM}", df.format(parameters.getDateFrom()),
-                "{DATE_TO}", df.format(parameters.getDateTo())
-        );
-
-        List<Map<String, String>> data = transactions.stream()
-                .map(r -> Map.of(
-                        "{DATE}", df.format(r.getDate()),
-                        "{ID}", r.getId() + "",
-                        "{DESCRIPTION}", r.getDescription(),
-                        "{CURRENCY}", r.getCurrency(),
-                        "{AMOUNT}", r.getAmount().toString()
-                )).collect(Collectors.toList());
-
-        Function<String, String> textTransformFunction;
-        if (Boolean.TRUE.equals(parameters.getAllCaps())) {
-            textTransformFunction = String::toUpperCase;
-        } else {
-            textTransformFunction = Function.identity();
-        }
-
-        InputStream stream;
-        if (parameters.getTemplate() == null) {
-            stream = getDocument();
-        } else {
-            stream = new ByteArrayInputStream(parameters.getTemplate());
-        }
-
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-             XWPFDocument document = new XWPFDocument(stream)) {
-
-            substituteParagraphWords(document, words);
-            substituteTable(document, data, textTransformFunction);
-            if (Boolean.TRUE.equals(parameters.getAllCaps())) {
-                document.getHeaderList().forEach(h -> transformBody(h, textTransformFunction));
-                transformBody(document, textTransformFunction);
-                document.getFooterList().forEach(f -> transformBody(f, textTransformFunction));
+    fun substituteParagraphWords(document: XWPFDocument, replaceWords: Map<String, String?>) {
+        val it: Iterator<XWPFParagraph> = document.paragraphsIterator
+        while (it.hasNext()) {
+            val p: XWPFParagraph = it.next()
+            val runs: List<XWPFRun>? = p.runs
+            if (runs != null) {
+                for (r in runs) {
+                    var text: String? = r.getText(0) ?: continue
+                    for (k in replaceWords.keys) {
+                        if (!text!!.contains(k)) continue
+                        text = text.replace(k, replaceWords[k]!!)
+                    }
+                    r.setText(text, 0)
+                }
             }
-            document.write(outputStream);
-            stream.close();
-
-            return new ByteArrayInputStream(outputStream.toByteArray());
         }
     }
 
-    public void substituteTable(XWPFDocument document, List<Map<String, String>> replaceRows,
-                                Function<String, String> textTransform) throws XmlException, IOException {
-        for (Iterator<XWPFTable> it = document.getTablesIterator(); it.hasNext(); ) {
-            XWPFTable tbl = it.next();
-            List<XWPFTableRow> rows = tbl.getRows();
-            if (rows.size() != 2) continue;
-
-            XWPFTableRow rowTemplate = copyRow(tbl.getRow(1), tbl);
-            tbl.removeRow(1);
-
-            for (Map<String, String> dataRow : replaceRows) {
-                XWPFTableRow row = copyRow(rowTemplate, tbl);
-                for (XWPFTableCell cell : row.getTableCells()) {
-                    for (XWPFParagraph p : cell.getParagraphs()) {
-                        for (XWPFRun r : p.getRuns()) {
-                            String text = r.getText(0);
-                            if (text == null) continue;
-                            for (String k : dataRow.keySet()) {
-                                text = text.replace(k, dataRow.get(k));
-                            }
-                            r.setText(textTransform.apply(text), 0);
+    companion object {
+        private fun transformBody(documentPart: IBody, transformFunction: Function<String?, String?>) {
+            for (p in documentPart.paragraphs) {
+                val runs: List<XWPFRun>? = p.runs
+                if (runs != null) {
+                    for (r in runs) {
+                        val text: String? = r.getText(0)
+                        if (text != null) {
+                            r.setText(transformFunction.apply(text), 0)
                         }
+                        text?.let { r.setText(transformFunction.apply(it), 0) }
                     }
                 }
-                tbl.addRow(row);
             }
-        }
-    }
-
-    private XWPFTableRow copyRow(XWPFTableRow row, XWPFTable tbl) throws XmlException, IOException {
-        CTRow ctrow = CTRow.Factory.parse(row.getCtRow().newInputStream());
-        return new XWPFTableRow(ctrow, tbl);
-    }
-
-    public void substituteParagraphWords(XWPFDocument document, Map<String, String> replaceWords) {
-        for (Iterator<XWPFParagraph> it = document.getParagraphsIterator(); it.hasNext(); ) {
-            XWPFParagraph p = it.next();
-            List<XWPFRun> runs = p.getRuns();
-            if (runs != null) {
-                for (XWPFRun r : runs) {
-                    String text = r.getText(0);
-                    if (text == null) continue;
-                    for (String k : replaceWords.keySet()) {
-                        if (!text.contains(k)) continue;
-                        text = text.replace(k, replaceWords.get(k));
+            for (tbl in documentPart.tables) {
+                for (row in tbl.rows) {
+                    for (cell in row.tableCells) {
+                        for (p in cell.paragraphs) {
+                            for (r in p.runs) {
+                                val text: String? = r.getText(0)
+                                text?.let { r.setText(transformFunction.apply(it), 0) }
+                            }
+                        }
                     }
-                    r.setText(text, 0);
                 }
             }
         }

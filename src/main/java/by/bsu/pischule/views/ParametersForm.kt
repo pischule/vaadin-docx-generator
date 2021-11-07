@@ -1,192 +1,184 @@
-package by.bsu.pischule.views;
+package by.bsu.pischule.views
 
-import by.bsu.pischule.model.Parameters;
-import com.vaadin.flow.component.*;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.Checkbox;
-import com.vaadin.flow.component.datepicker.DatePicker;
-import com.vaadin.flow.component.formlayout.FormLayout;
-import com.vaadin.flow.component.html.*;
-import com.vaadin.flow.component.textfield.IntegerField;
-import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
-import com.vaadin.flow.data.binder.BeanValidationBinder;
-import com.vaadin.flow.data.binder.Binder;
-import com.vaadin.flow.data.binder.ValidationException;
-import com.vaadin.flow.server.StreamResource;
-import com.vaadin.flow.shared.Registration;
-import lombok.Getter;
-import org.apache.commons.io.IOUtils;
+import by.bsu.pischule.model.Parameters
+import com.vaadin.flow.component.*
+import com.vaadin.flow.component.AbstractField.ComponentValueChangeEvent
+import com.vaadin.flow.component.button.Button
+import com.vaadin.flow.component.button.ButtonVariant
+import com.vaadin.flow.component.checkbox.Checkbox
+import com.vaadin.flow.component.datepicker.DatePicker
+import com.vaadin.flow.component.formlayout.FormLayout
+import com.vaadin.flow.component.html.Anchor
+import com.vaadin.flow.component.html.Div
+import com.vaadin.flow.component.html.H3
+import com.vaadin.flow.component.html.Paragraph
+import com.vaadin.flow.component.textfield.IntegerField
+import com.vaadin.flow.component.textfield.TextField
+import com.vaadin.flow.component.upload.Upload
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer
+import com.vaadin.flow.data.binder.BeanValidationBinder
+import com.vaadin.flow.data.binder.Binder
+import com.vaadin.flow.data.binder.ValidationException
+import com.vaadin.flow.server.InputStreamFactory
+import com.vaadin.flow.server.StreamResource
+import com.vaadin.flow.shared.Registration
+import org.apache.commons.io.IOUtils
+import java.io.InputStream
+import java.time.LocalDate
+import java.util.*
 
-import java.io.InputStream;
-import java.util.Locale;
+class ParametersForm : FormLayout() {
+    var h3 = H3("Выписка по счету")
+    var binder: Binder<Parameters> = BeanValidationBinder(
+        Parameters::class.java
+    )
+    var parameters = Parameters()
 
-public class ParametersForm extends FormLayout {
-
-    private static final String DATE_PLACEHOLDER = "ДД.ММ.ГГГГ";
-    private static final Locale APP_LOCALE = new Locale("ru", "RU");
-    private static final String ALL_CAPS_CHECKBOX_TEXT = "Заменить строчные заглавными";
-
-    H3 h3 = new H3("Выписка по счету");
-
-    Binder<Parameters> binder = new BeanValidationBinder<>(Parameters.class);
-    Parameters parameters = new Parameters();
-
-    TextField name = new TextField("Владелец счета");
-    IntegerField account = new IntegerField("Номер счета");
-    DatePicker dateFrom = new DatePicker("Начало интервала");
-    DatePicker dateTo = new DatePicker("Конец интервала");
-    Checkbox allCaps = new Checkbox(ALL_CAPS_CHECKBOX_TEXT);
-    MemoryBuffer template = new MemoryBuffer();
-    Upload uploadTemplateFile = new Upload(template);
-    IntegerField rowCount = new IntegerField("Количество записей");
-
-    Button generateButton = new Button("Сгенерировать данные");
-    Button downloadButton = new Button("Создать документ");
-
-
-    public ParametersForm() {
-        setSizeFull();
-        binder.bindInstanceFields(this);
-        configureDatePickers();
-        configureRowCount();
-        configureGenerateButton();
-        configureDownloadButton();
-        configureUpload();
-        configureAllCapsButton();
-
-        add(
-                h3,
-                name,
-                account,
-                dateFrom,
-                dateTo,
-                allCaps,
-                uploadTemplateFile,
-                getTemplateLink(),
-                rowCount,
-                generateButton,
-                downloadButton,
-                getStudentInfo()
-        );
-    }
-
-    private void configureAllCapsButton() {
-        allCaps.addValueChangeListener(e -> {
-            if (e.getValue()) {
-                allCaps.setLabel(ALL_CAPS_CHECKBOX_TEXT.toUpperCase());
+    val name = TextField("Владелец счета")
+    val account = IntegerField("Номер счета")
+    val dateFrom = DatePicker("Начало интервала")
+    val dateTo = DatePicker("Конец интервала")
+    val allCaps = Checkbox(ALL_CAPS_CHECKBOX_TEXT)
+    val template = MemoryBuffer()
+    val uploadTemplateFile = Upload(template)
+    val rowCount = IntegerField("Количество записей")
+    val generateButton = Button("Сгенерировать данные")
+    val downloadButton = Button("Создать документ")
+    private fun configureAllCapsButton() {
+        allCaps.addValueChangeListener { e: ComponentValueChangeEvent<Checkbox?, Boolean> ->
+            if (e.value) {
+                allCaps.label = ALL_CAPS_CHECKBOX_TEXT.uppercase()
             } else {
-                allCaps.setLabel(ALL_CAPS_CHECKBOX_TEXT);
+                allCaps.label = ALL_CAPS_CHECKBOX_TEXT
             }
-        });
+        }
     }
 
-    private void configureUpload() {
+    private fun configureUpload() {
         uploadTemplateFile.setAcceptedFileTypes(
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
     }
 
-    private void configureRowCount() {
-        rowCount.setHasControls(true);
-        rowCount.setStep(100);
+    private fun configureRowCount() {
+        rowCount.setHasControls(true)
+        rowCount.step = 100
     }
 
-    private void configureGenerateButton() {
-        generateButton.addClickListener(e -> validateAndGenerate());
+    private fun configureGenerateButton() {
+        generateButton.addClickListener { e: ClickEvent<Button?>? -> validateAndGenerate() }
     }
 
-    private void configureDatePickers() {
-        dateFrom.setLocale(APP_LOCALE);
-        dateFrom.setAutoOpen(true);
-        dateFrom.setPlaceholder(DATE_PLACEHOLDER);
-
-        dateTo.setLocale(APP_LOCALE);
-        dateFrom.setAutoOpen(true);
-        dateFrom.setPlaceholder(DATE_PLACEHOLDER);
-
-        dateFrom.addValueChangeListener(e -> dateTo.setMin(e.getValue()));
-        dateTo.addValueChangeListener(e -> dateFrom.setMax(e.getValue()));
-    }
-
-    private void configureDownloadButton() {
-        downloadButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        downloadButton.addClickListener(this::downloadFile);
-        downloadButton.addClickShortcut(Key.ENTER);
-    }
-
-    private void validateAndGenerate() {
-        try {
-            binder.writeBean(parameters);
-            fireEvent(new GenerateEvent(this, parameters));
-        } catch (ValidationException e) {
-            e.printStackTrace();
+    private fun configureDatePickers() {
+        dateFrom.locale = APP_LOCALE
+        dateFrom.isAutoOpen = true
+        dateFrom.placeholder = DATE_PLACEHOLDER
+        dateTo.locale = APP_LOCALE
+        dateFrom.isAutoOpen = true
+        dateFrom.placeholder = DATE_PLACEHOLDER
+        dateFrom.addValueChangeListener { e: ComponentValueChangeEvent<DatePicker?, LocalDate?> ->
+            dateTo.min = e.value
+        }
+        dateTo.addValueChangeListener { e: ComponentValueChangeEvent<DatePicker?, LocalDate?> ->
+            dateFrom.max = e.value
         }
     }
 
-    private Div getStudentInfo() {
-        Div div = new Div();
-        div.add(new Paragraph("Студент: Пищулёнок Максим Сергеевич"));
-        div.add(new Paragraph("Курс: 4; Группа: 4."));
-        return div;
+    private fun configureDownloadButton() {
+        downloadButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+        downloadButton.addClickListener { e: ClickEvent<Button> -> downloadFile() }
+        downloadButton.addClickShortcut(Key.ENTER)
     }
 
-    private Component getTemplateLink() {
-        Anchor downloadLink = new Anchor(
-                new StreamResource("template.docx",
-                        this::getTemplateFileInputStream),
-                "Пример шаблона");
-        downloadLink.getElement().setAttribute("download", true);
-        return downloadLink;
+    private fun validateAndGenerate() {
+        try {
+            binder.writeBean(parameters)
+            fireEvent(GenerateEvent(this, parameters))
+        } catch (e: ValidationException) {
+            e.printStackTrace()
+        }
     }
 
-    public <T extends ComponentEvent<?>> Registration addListener(Class<T> eventType, ComponentEventListener<T> listener) {
-        return getEventBus().addListener(eventType, listener);
+    private val studentInfo: Div
+        get() {
+            val div = Div()
+            div.add(Paragraph("Студент: Пищулёнок Максим Сергеевич"))
+            div.add(Paragraph("Курс: 4; Группа: 4."))
+            return div
+        }
+    private val templateLink: Component
+        get() {
+            val downloadLink = Anchor(
+                StreamResource("template.docx", InputStreamFactory { templateFileInputStream }),
+                "Пример шаблона"
+            )
+            downloadLink.element.setAttribute("download", true)
+            return downloadLink
+        }
+
+    public override fun <T : ComponentEvent<*>?> addListener(
+        eventType: Class<T>,
+        listener: ComponentEventListener<T>
+    ): Registration {
+        return eventBus.addListener(eventType, listener)
     }
 
-    public void setFormData(Parameters data) {
-        binder.readBean(data);
-        this.parameters = data;
+    fun setFormData(data: Parameters) {
+        binder.readBean(data)
+        parameters = data
     }
 
-    private void downloadFile(ClickEvent<Button> e) {
-        if (template.getFileData() != null) {
-            InputStream is = template.getInputStream();
+    private fun downloadFile() {
+        if (template.fileData != null) {
+            val `is` = template.inputStream
             try {
-                parameters.setTemplate(IOUtils.toByteArray(is));
-            } catch (Exception ignored) {
+                parameters.template = IOUtils.toByteArray(`is`)
+            } catch (ignored: Exception) {
             }
         }
-        parameters.setAllCaps(allCaps.getValue());
-        fireEvent(new DownloadEvent(this, parameters));
+        parameters.allCaps = allCaps.value
+        fireEvent(DownloadEvent(this, parameters))
     }
 
-
-    private InputStream getTemplateFileInputStream() {
-        ClassLoader classLoader = getClass().getClassLoader();
-        return classLoader.getResourceAsStream("template.docx");
-    }
-
-    public static abstract class FormEvent extends ComponentEvent<ParametersForm> {
-        @Getter
-        private final Parameters parameters;
-
-        public FormEvent(ParametersForm source, Parameters parameters) {
-            super(source, false);
-            this.parameters = parameters;
+    private val templateFileInputStream: InputStream
+        get() {
+            val classLoader = javaClass.classLoader
+            return classLoader.getResourceAsStream("template.docx")
         }
+
+    abstract class FormEvent(source: ParametersForm?, val parameters: Parameters) :
+        ComponentEvent<ParametersForm?>(source, false)
+
+    class GenerateEvent(source: ParametersForm?, parameters: Parameters) : FormEvent(source, parameters)
+    class DownloadEvent(source: ParametersForm?, parameters: Parameters) : FormEvent(source, parameters)
+    companion object {
+        private const val DATE_PLACEHOLDER = "ДД.ММ.ГГГГ"
+        private val APP_LOCALE = Locale("ru", "RU")
+        private const val ALL_CAPS_CHECKBOX_TEXT = "Заменить строчные заглавными"
     }
 
-    public static class GenerateEvent extends FormEvent {
-        public GenerateEvent(ParametersForm source, Parameters parameters) {
-            super(source, parameters);
-        }
-    }
-
-    public static class DownloadEvent extends FormEvent {
-        public DownloadEvent(ParametersForm source, Parameters parameters) {
-            super(source, parameters);
-        }
+    init {
+        setSizeFull()
+        binder.bindInstanceFields(this)
+        configureDatePickers()
+        configureRowCount()
+        configureGenerateButton()
+        configureDownloadButton()
+        configureUpload()
+        configureAllCapsButton()
+        add(
+            h3,
+            name,
+            account,
+            dateFrom,
+            dateTo,
+            allCaps,
+            uploadTemplateFile,
+            templateLink,
+            rowCount,
+            generateButton,
+            downloadButton,
+            studentInfo
+        )
     }
 }

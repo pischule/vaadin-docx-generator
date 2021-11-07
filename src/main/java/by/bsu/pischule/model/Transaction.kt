@@ -1,18 +1,12 @@
-package by.bsu.pischule.model;
+package by.bsu.pischule.model
 
-import lombok.*;
+import java.math.BigDecimal
+import java.time.LocalDate
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@Data
-public class Transaction {
-    private Long id;
-    private LocalDate date;
-    private String description;
-    private String currency;
-    private BigDecimal amount;
-}
+data class Transaction(
+    val id: Long,
+    val date: LocalDate,
+    val description: String,
+    val currency: String,
+    val amount: BigDecimal,
+)
