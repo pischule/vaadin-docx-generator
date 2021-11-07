@@ -27,7 +27,7 @@ public class TemplateService {
 
     public InputStream fillDocument(FormData formData, Collection<Transaction> transactions) throws IOException, XmlException {
 
-        DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+        DateTimeFormatter df = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         Map<String, String> words = Map.of(
                 "{OWNER_NAME}", formData.getName(),
                 "{ACCOUNT_NUMBER}", formData.getAccount() + "",
