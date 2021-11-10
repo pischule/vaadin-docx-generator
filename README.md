@@ -3,6 +3,8 @@
 - [java version](https://github.com/pischule/vaadin-docx-generator/tree/java)
 - [kotlin version](https://github.com/pischule/vaadin-docx-generator/tree/kotlin)
 
+![image](https://user-images.githubusercontent.com/41614960/141192284-8a013784-4556-4bbd-9244-33365e9a0d07.png)
+
 ## Running the application
 
 The project is a standard Maven project. To run it from the command line,
