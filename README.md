@@ -3,7 +3,12 @@
 - [java version](https://github.com/pischule/vaadin-docx-generator/tree/java)
 - [kotlin version](https://github.com/pischule/vaadin-docx-generator/tree/kotlin)
 
-![image](https://user-images.githubusercontent.com/41614960/141192284-8a013784-4556-4bbd-9244-33365e9a0d07.png)
+
+![image](https://user-images.githubusercontent.com/41614960/188288514-91eaf97c-bddd-4ae8-b67f-b633d6c67a7e.png)
+
+<img width="713" alt="image" src="https://user-images.githubusercontent.com/41614960/188288524-ccde4ab0-332a-4ff7-8d04-486590632f5b.png">
+
+<img width="713" alt="image" src="https://user-images.githubusercontent.com/41614960/188288533-c0cb1f35-0719-4717-b831-4e93e44756d2.png">
 
 Это первая лабораторная работа по курсу "Разработка клиент-серверных бизнес-приложений"
 
